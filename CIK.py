@@ -58,14 +58,25 @@ class SecEdgar:
         """
         padded_cik = cik.zfill(10)
         url = f"https://data.sec.gov/submissions/CIK{padded_cik}.json"
-        r = requests.get(url, headers=self.headers)
-        return r.json()
+        try:
+            r = requests.get(url, headers=self.headers, timeout=10)
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.HTTPError as http_err:
+                print(f"HTTP error: {http_err} (status code: {r.status_code})")
+        except requests.exceptions.RequestException as req_err:
+            print(f"Network error: {req_err}")
+        except ValueError as json_err:
+            print("Error decoding JSON response.")
+        return None
     
     def annual_filing(self, cik, year):
         """
         Retrieves the URL for the company's 10-K (annual report) filing for a given year.
         """
         result = self._fetch_submissions(cik)
+        if result is None:
+            return "Failed to retrieve annual filing data due to an API error."
         recent = result["filings"]["recent"]
         forms = recent.get("form", [])
         dates = recent.get("filingDate", [])
@@ -87,6 +98,8 @@ class SecEdgar:
         Retrieves the URL for the company's 10-Q (quarterly report) filing for a given year and quarter.
         """
         result = self._fetch_submissions(cik)
+        if result is None:
+            return "Failed to retrieve quarterly filing data due to an API error."
         recent = result["filings"]["recent"]
         forms = recent.get("form", [])
         dates = recent.get("filingDate", [])
@@ -117,5 +130,3 @@ print()
 cik = "1065280" 
 print(se.annual_filing(cik, 2023))      
 print(se.quarterly_filing(cik, 2023, 2)) 
-
-

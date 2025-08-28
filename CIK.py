@@ -1,4 +1,5 @@
 import requests
+from markdownify import markdownify as md
 
 class SecEdgar:
     """
@@ -72,7 +73,7 @@ class SecEdgar:
     
     def annual_filing(self, cik, year):
         """
-        Retrieves the URL for the company's 10-K (annual report) filing for a given year.
+        Retrieves the Markdown content of the company's 10-K (quaterly report) filing for a given year.
         """
         result = self._fetch_submissions(cik)
         if result is None:
@@ -89,13 +90,19 @@ class SecEdgar:
                 document = primary_document[i]
                 clean_cik = cik.lstrip("0")
                 url = f"https://www.sec.gov/Archives/edgar/data/{clean_cik}/{accession}/{document}"
-                return url
+                
+                try:
+                    response = requests.get(url, headers=self.headers, timeout=10)
+                    response.raise_for_status()
+                    return md(response.text) 
+                except requests.RequestException as e:
+                    return f"Failed to fetch filing content: {e}"
 
         return f"No 10-K filing found"
 
     def quarterly_filing(self, cik, year, quarter):
         """
-        Retrieves the URL for the company's 10-Q (quarterly report) filing for a given year and quarter.
+        Retrieves the Markdown content of the company's 10-Q (annual report) filing for a given year.
         """
         result = self._fetch_submissions(cik)
         if result is None:
@@ -109,17 +116,23 @@ class SecEdgar:
         for i in range(len(forms)):
             if forms[i] == "10-Q" and dates[i].startswith(str(year)):
                 month = int(dates[i].split("-")[1])
-                if (quarter == 1 and month in [1, 2, 3]) or \
-                (quarter == 2 and month in [4, 5, 6]) or \
-                (quarter == 3 and month in [7, 8, 9]) or \
-                (quarter == 4 and month in [10, 11, 12]):
+                if (quarter == 1 and month in [12, 1, 2]) or \
+                (quarter == 2 and month in [3, 4, 5]) or \
+                (quarter == 3 and month in [6, 7, 8]) or \
+                (quarter == 4 and month in [9, 10, 11]):
 
                     accession = accession_number[i].replace("-", "")
                     document = primary_document[i]
                     clean_cik = cik.lstrip("0")
                     url = f"https://www.sec.gov/Archives/edgar/data/{clean_cik}/{accession}/{document}"
-                    return url
-
+            
+                    try:
+                        response = requests.get(url, headers=self.headers, timeout=10)
+                        response.raise_for_status()
+                        return md(response.text)  
+                    except requests.RequestException as e:
+                        return f"Failed to fetch filing content: {e}"
+                    
         return f"No 10-Q filing found"
 
 se = SecEdgar('https://www.sec.gov/files/company_tickers_exchange.json')
